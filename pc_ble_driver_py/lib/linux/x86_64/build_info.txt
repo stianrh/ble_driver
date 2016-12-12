@@ -1,0 +1,26 @@
+Build information:
+
+* System: Linux-4.4.0-47-generic
+* Hostname: opm
+* Timestamp: 2016-12-12 11:53:03 (YY-MM-DD HH:MM:SS, UTC)
+* Generator: Unix Makefiles
+* Build type: Debug
+* C Compiler: GNU (64-bit)
+* C++ Compiler: GNU (64-bit)
+* CMake version: 3.5.1
+* Boost version: 1.62.0
+* Boost libs: /home/power/src/boost_1_62_0/stage/lib
+* SD API Versions: <SD_API_V2> <SD_API_V3>
+* SWIG version: 3.0.8
+* Pyhon version: 2.7.12
+* Pyhon libs: /usr/lib/x86_64-linux-gnu/libpython2.7.so
+* Git repo: pc-ble-driver-py
+** Git revision: a9505c26e6e31edfe9233053f279cbdccae2a15f
+** Git branch: master
+* Git repo: pc-ble-driver
+** Git revision: 2e1af4d8854398b17bde288f57130b5f48d42945
+** Git branch: HEAD
+* MD5 sums: 
+** 8067efef16b81701f09ffa4b6987bd1d  pc_ble_driver_sd_api_v2.py
+** 1bad89962268c267fa2a8b1263edac9c  _pc_ble_driver_sd_api_v2.so
+** d3a4a67ca836edb5a49336d5bc585d40  libpc_ble_driver_shared_sd_api_v2.so

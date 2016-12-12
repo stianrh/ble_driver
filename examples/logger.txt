@@ -1,0 +1,2 @@
+INFO:pc_ble_driver_py.ble_driver:Shared library: /home/power/projects/ble_driver/env/local/lib/python2.7/site-packages/pc_ble_driver_py/lib/linux/x86_64/libpc_ble_driver_shared_sd_api_v2.so
+INFO:pc_ble_driver_py.ble_driver:Swig module name: pc_ble_driver_sd_api_v2
