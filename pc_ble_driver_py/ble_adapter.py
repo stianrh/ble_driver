@@ -37,6 +37,7 @@
 import Queue
 import logging
 import wrapt
+import pyelliptic
 from threading  import Condition, Lock
 from ble_driver import *
 from exceptions import NordicSemiException
@@ -307,6 +308,16 @@ class BLEAdapter(BLEDriverObserver):
 
     @NordicSemiErrorCheck(expected = BLEGapSecStatus.success)
     def authenticate(self, conn_handle):
+        #create keys
+        ecc = pyelliptic.ECC(curve='prime256v1')
+        pub_key_bin = ecc.get_pubkey(_format='hex')
+        pub_key_bin = pub_key_bin.decode('hex')
+        pub_key_bin = map(ord, pub_key_bin)[1:]
+        pk_x = pub_key_bin[0:32]
+        pk_y = pub_key_bin[32:64]
+        pub_key_bin = pk_x[::-1] + pk_y[::-1]
+        pub_key     = BLEGapLESCp256pk(pk = pub_key_bin)
+
         kdist_own   = BLEGapSecKDist(enc  = False,
                                      id   = False,
                                      sign = False,
@@ -317,7 +328,7 @@ class BLEAdapter(BLEDriverObserver):
                                      link = False)
         sec_params  = BLEGapSecParams(bond          = False,
                                       mitm          = False,
-                                      lesc          = False,
+                                      lesc          = True,
                                       keypress      = False,
                                       io_caps       = BLEGapIOCaps.none,
                                       oob           = False,
@@ -327,10 +338,26 @@ class BLEAdapter(BLEDriverObserver):
                                       kdist_peer    = kdist_peer)
 
         self.driver.ble_gap_authenticate(conn_handle, sec_params)
-        self.evt_sync[conn_handle].wait(evt = BLEEvtID.gap_evt_sec_params_request)
+        result = self.evt_sync[conn_handle].wait(evt = BLEEvtID.gap_evt_sec_params_request)
+        print result['peer_params']
 
-        self.driver.ble_gap_sec_params_reply(conn_handle, BLEGapSecStatus.success, None, None, None)
+        self.driver.ble_gap_sec_params_reply(conn_handle, BLEGapSecStatus.success, None, pub_key, None)
+        result = self.evt_sync[conn_handle].wait(evt = BLEEvtID.gap_evt_lesc_dhkey_request)
+
+        #Calculate shared secret
+        peer_pk = result['p_pk_peer'].pk
+        peer_pk_x = peer_pk[0:32]
+        peer_pk_y = peer_pk[32:64]
+        peer_pk = peer_pk_x[::-1] + peer_pk_y[::-1]
+        peer_pk_str = b'04' + ''.join('{:02x}'.format(x) for x in peer_pk)
+        dhkey = ecc.get_ecdh_key(peer_pk_str, format='hex')
+        dhkey = map(ord, dhkey)[::-1]
+        dhkey = BLEGapLESCdhkey(key = dhkey)
+
+        self.driver.ble_gap_lesc_dhkey_reply(conn_handle, dhkey)
         result = self.evt_sync[conn_handle].wait(evt = BLEEvtID.gap_evt_auth_status)
+
+        print result
         return result['auth_status']
 
 
@@ -353,6 +380,8 @@ class BLEAdapter(BLEDriverObserver):
     def on_gap_evt_sec_params_request(self, ble_driver, conn_handle, **kwargs):
         self.evt_sync[conn_handle].notify(evt = BLEEvtID.gap_evt_sec_params_request, data = kwargs)
 
+    def on_gap_evt_lesc_dhkey_request(self, ble_driver, conn_handle, **kwargs):
+        self.evt_sync[conn_handle].notify(evt = BLEEvtID.gap_evt_lesc_dhkey_request, data = kwargs)
 
     def on_gap_evt_auth_status(self, ble_driver, conn_handle, **kwargs):
         self.evt_sync[conn_handle].notify(evt = BLEEvtID.gap_evt_auth_status, data = kwargs)

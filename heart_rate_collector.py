@@ -42,7 +42,9 @@ import logging
 
 from pc_ble_driver_py.observers     import *
 
-TARGET_DEV_NAME = "Nordic_HRM"
+logger = logging.getLogger(__name__)
+
+TARGET_DEV_NAME = "NordicLESCApp"
 CONNECTIONS     = 1
 
 def init(conn_ic_id):
@@ -90,7 +92,7 @@ class HRCollector(BLEDriverObserver, BLEAdapterObserver):
             att_mtu = self.adapter.att_mtu_exchange(new_conn)
 
         self.adapter.service_discovery(new_conn)
-        self.adapter.enable_notification(new_conn, BLEUUID(BLEUUID.Standard.battery_level))
+        self.adapter.authenticate(new_conn)
         self.adapter.enable_notification(new_conn, BLEUUID(BLEUUID.Standard.heart_rate))
         return new_conn
 
@@ -122,8 +124,6 @@ class HRCollector(BLEDriverObserver, BLEAdapterObserver):
 
         dev_name        = "".join(chr(e) for e in dev_name_list)
         address_string  = "".join("{0:02X}".format(b) for b in peer_addr.addr)
-        print('Received advertisment report, address: 0x{}, device_name: {}'.format(address_string,
-                                                                                    dev_name))
 
         if (dev_name == TARGET_DEV_NAME):
             self.adapter.connect(peer_addr)
@@ -143,12 +143,11 @@ class HRCollector(BLEDriverObserver, BLEAdapterObserver):
 
 def main(serial_port):
     print('Serial port used: {}'.format(serial_port))
-    driver    = BLEDriver(serial_port=serial_port, auto_flash=True)
+    driver    = BLEDriver(serial_port=serial_port, auto_flash=False)
     adapter   = BLEAdapter(driver)
     collector = HRCollector(adapter)
     collector.open()
-    for i in xrange(CONNECTIONS):
-        conn_handle = collector.connect_and_discover()
+    conn_handle = collector.connect_and_discover()
 
     time.sleep(30)
     print('Closing')
