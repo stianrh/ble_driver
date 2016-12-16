@@ -140,6 +140,7 @@ class BLEEvtID(Enum):
     gap_evt_conn_param_update_request = driver.BLE_GAP_EVT_CONN_PARAM_UPDATE_REQUEST
     gap_evt_conn_param_update         = driver.BLE_GAP_EVT_CONN_PARAM_UPDATE
     gap_evt_auth_status               = driver.BLE_GAP_EVT_AUTH_STATUS
+    gap_evt_passkey_display           = driver.BLE_GAP_EVT_PASSKEY_DISPLAY
     gap_evt_conn_sec_update           = driver.BLE_GAP_EVT_CONN_SEC_UPDATE
     evt_tx_complete                   = driver.BLE_EVT_TX_COMPLETE
     gattc_evt_write_rsp               = driver.BLE_GATTC_EVT_WRITE_RSP
@@ -1127,7 +1128,7 @@ class BLEDriver(object):
         keyset.keys_own.p_enc_key   = driver.ble_gap_enc_key_t()
         keyset.keys_own.p_id_key    = driver.ble_gap_id_key_t()
         keyset.keys_own.p_sign_key  = driver.ble_gap_sign_info_t()
-        keyset.keys_own.p_pk        = own_keys.to_c() if own_keys else None
+        keyset.keys_own.p_pk        = own_keys.to_c() if own_keys else driver.ble_gap_lesc_p256_pk_t()
 
         keyset.keys_peer.p_enc_key  = driver.ble_gap_enc_key_t()
         keyset.keys_peer.p_id_key   = driver.ble_gap_id_key_t()
@@ -1149,6 +1150,13 @@ class BLEDriver(object):
                                                   conn_handle,
                                                   dhkey.to_c())
 
+    @NordicSemiErrorCheck
+    @wrapt.synchronized(api_lock)
+    def ble_gap_auth_key_reply(self, conn_handle, key_type, p_key):
+        return driver.sd_ble_gap_auth_key_reply(self.rpc_adapter,
+                                                  conn_handle,
+                                                  key_type,
+                                                  p_key)
 
     @NordicSemiErrorCheck
     @wrapt.synchronized(api_lock)
@@ -1238,6 +1246,7 @@ class BLEDriver(object):
         evt_id = None
         try:
             evt_id = BLEEvtID(ble_event.header.evt_id)
+            logger.debug('Received event: ' + str(evt_id))
         except:
             logger.error('Invalid received BLE event id: 0x{:02X}'.format(ble_event.header.evt_id))
             return
@@ -1274,7 +1283,16 @@ class BLEDriver(object):
                 for obs in self.observers:
                     obs.on_gap_evt_lesc_dhkey_request(ble_driver  = self,
                                                       conn_handle = ble_event.evt.gap_evt.conn_handle,
-                                                      p_pk_peer = BLEGapLESCp256pk.from_c(lesc_dhkey_request_evt.p_pk_peer))
+                                                      p_pk_peer   = BLEGapLESCp256pk.from_c(lesc_dhkey_request_evt.p_pk_peer))
+
+            elif evt_id == BLEEvtID.gap_evt_passkey_display:
+                passkey_display_evt = ble_event.evt.gap_evt.params.passkey_display
+
+                for obs in self.observers:
+                    obs.on_gap_evt_passkey_display(ble_driver    = self,
+                                                   conn_handle   = ble_event.evt.gap_evt.conn_handle,
+                                                   match_request = passkey_display_evt.match_request,
+                                                   passkey       = util.uint8_array_to_list(passkey_display_evt.passkey, 6))
 
             elif evt_id == BLEEvtID.gap_evt_timeout:
                 timeout_evt = ble_event.evt.gap_evt.params.timeout
